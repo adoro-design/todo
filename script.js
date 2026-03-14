@@ -21,10 +21,9 @@ const submitBtn = document.getElementById("submit-btn");
 const filterButtons = document.querySelectorAll(".chip-btn");
 const viewToggleButtons = document.querySelectorAll(".icon-toggle-btn[data-view]");
 
-const STORAGE_KEY = "todo_tasks_v1";
-
 let currentFilter = "all"; // all | today | week
 let currentView = "list"; // list | calendar
+let tasks = []; // 메모리에서만 관리
 
 // 달력에서 현재 보고 있는 연/월
 const todayForCalendar = new Date();
@@ -43,22 +42,6 @@ function getTodayISO() {
 function formatKoreanDate(isoDate) {
   const [year, month, day] = isoDate.split("-").map(Number);
   return `${year}년 ${month}월 ${day}일`;
-}
-
-function loadTasks() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed;
-  } catch {
-    return [];
-  }
-}
-
-function saveTasks(tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
 function createTaskCard(task, isTodaySection) {
@@ -159,7 +142,7 @@ function createTaskCard(task, isTodaySection) {
 }
 
 function render() {
-  const tasks = loadTasks().sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+  const sorted = [...tasks].sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
   const todayISO = getTodayISO();
 
   // 오늘 날짜 표시
@@ -167,7 +150,7 @@ function render() {
 
   // 오늘의 할 일 렌더링
   todayTasksEl.innerHTML = "";
-  const todayTasks = tasks.filter((t) => t.date === todayISO);
+  const todayTasks = sorted.filter((t) => t.date === todayISO);
 
   if (todayTasks.length === 0) {
     const empty = document.createElement("div");
@@ -180,7 +163,7 @@ function render() {
     });
   }
 
-  renderAllTasksSection(tasks, todayISO);
+  renderAllTasksSection(sorted, todayISO);
 }
 
 function getFilteredTasks(tasks, todayISO) {
@@ -434,7 +417,6 @@ function closeModal() {
 }
 
 function openEditModal(taskId) {
-  const tasks = loadTasks();
   const task = tasks.find((t) => t.id === taskId);
   if (!task) return;
 
@@ -453,19 +435,19 @@ function openEditModal(taskId) {
 }
 
 function openDateDetailModal(dateIso) {
-  const tasks = loadTasks().filter((t) => t.date === dateIso);
+  const dateTasks = tasks.filter((t) => t.date === dateIso);
   currentDateForModal = dateIso;
 
   dateDetailText.textContent = formatKoreanDate(dateIso);
 
   dateTaskListEl.innerHTML = "";
-  if (tasks.length === 0) {
+  if (dateTasks.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
     empty.textContent = "이 날짜에는 등록된 할 일이 없습니다.";
     dateTaskListEl.appendChild(empty);
   } else {
-    tasks.forEach((task) => {
+    dateTasks.forEach((task) => {
       const card = createTaskCard(task, false);
       dateTaskListEl.appendChild(card);
     });
@@ -477,24 +459,20 @@ function openDateDetailModal(dateIso) {
 }
 
 function toggleTaskCompleted(taskId, completed) {
-  const tasks = loadTasks();
   const idx = tasks.findIndex((t) => t.id === taskId);
   if (idx === -1) return;
   tasks[idx] = { ...tasks[idx], completed };
-  saveTasks(tasks);
   render();
 }
 
 function deleteTask(taskId) {
-  const tasks = loadTasks();
   const target = tasks.find((t) => t.id === taskId);
   if (!target) return;
 
   const confirmed = window.confirm(`"${target.title}" 할 일을 삭제하시겠어요?`);
   if (!confirmed) return;
 
-  const next = tasks.filter((t) => t.id !== taskId);
-  saveTasks(next);
+  tasks = tasks.filter((t) => t.id !== taskId);
   closeModal();
   render();
 }
@@ -554,8 +532,6 @@ taskForm.addEventListener("submit", (e) => {
     return;
   }
 
-  const tasks = loadTasks();
-
   if (editingTaskId == null) {
     tasks.push({
       id: Date.now(),
@@ -575,8 +551,6 @@ taskForm.addEventListener("submit", (e) => {
       };
     }
   }
-
-  saveTasks(tasks);
 
   taskForm.reset();
   dateInput.value = getTodayISO();
