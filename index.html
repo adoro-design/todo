@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>할 일 관리</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="today-label">오늘의 할 일</div>
+      <div class="today-meta">
+        <span id="today-date"></span>
+        <button id="open-modal-btn" class="primary-btn">+ 새로운 할 일</button>
+      </div>
+      <div id="today-tasks" class="task-list today-tasks">
+        <!-- 오늘의 할 일 렌더링 영역 -->
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="task-section">
+        <div class="task-section-header">
+          <h2 class="section-title">전체 할 일 목록</h2>
+          <div class="task-section-controls">
+            <div class="filter-group">
+              <button class="chip-btn is-active" data-filter="all" type="button">전체</button>
+              <button class="chip-btn" data-filter="today" type="button">오늘</button>
+              <button class="chip-btn" data-filter="week" type="button">이번 주</button>
+            </div>
+            <div class="view-toggle-group" aria-label="보기 전환">
+              <button
+                type="button"
+                class="icon-toggle-btn is-active"
+                data-view="list"
+                title="목록으로 보기"
+                aria-label="목록으로 보기"
+              >
+                ☰
+              </button>
+              <button
+                type="button"
+                class="icon-toggle-btn"
+                data-view="calendar"
+                title="달력으로 보기"
+                aria-label="달력으로 보기"
+              >
+                📅
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="all-tasks" class="task-list">
+          <!-- 전체 할 일 렌더링 영역 -->
+        </div>
+        <div id="calendar-view">
+          <!-- 달력 기반 할 일 렌더링 영역 -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 할 일 추가/수정 모달 -->
+  <div id="task-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">새로운 할 일 추가</h2>
+        <button id="close-modal-btn" class="icon-btn" aria-label="닫기">×</button>
+      </div>
+      <form id="task-form" class="modal-body">
+        <div class="form-group">
+          <label for="task-title">제목</label>
+          <input type="text" id="task-title" name="title" required placeholder="할 일 제목을 입력하세요" />
+        </div>
+        <div class="form-group">
+          <label for="task-desc">상세 내용</label>
+          <textarea id="task-desc" name="description" rows="4" placeholder="할 일에 대한 상세 내용을 입력하세요"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="task-date">일자</label>
+          <input type="date" id="task-date" name="date" required />
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="cancel-btn" class="secondary-btn">취소</button>
+          <button type="submit" id="submit-btn" class="primary-btn">추가하기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 날짜별 할 일 목록 모달 -->
+  <div id="date-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>해당 날짜의 할 일</h2>
+        <button id="date-close-btn" class="icon-btn" aria-label="닫기">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="date-detail-header">
+          <div>
+            <div class="date-detail-label">선택한 날짜</div>
+            <div id="date-detail-text" class="date-detail-text"></div>
+          </div>
+          <button type="button" id="date-new-task-btn" class="primary-btn">+ 새로운 할 일</button>
+        </div>
+        <div id="date-task-list" class="task-list date-task-list">
+          <!-- 선택한 날짜의 할 일 카드 목록 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
