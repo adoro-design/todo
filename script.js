@@ -279,10 +279,18 @@ function isInThisWeek(dateStr, baseIso) {
   return target >= weekStart && target <= weekEnd;
 }
 
-function renderCalendar(tasks, baseIso) {
+function renderCalendar(tasksForView, baseIso) {
   calendarViewEl.style.display = "block";
   calendarViewEl.innerHTML = "";
 
+  if (currentFilter === "week") {
+    renderWeekCalendar(tasksForView, baseIso);
+  } else {
+    renderMonthCalendar(tasksForView, baseIso);
+  }
+}
+
+function renderMonthCalendar(tasksForView, baseIso) {
   const todayIso = baseIso;
 
   const year = calendarYear;
@@ -294,7 +302,7 @@ function renderCalendar(tasks, baseIso) {
   const firstDay = (firstOfMonth.getDay() + 6) % 7; // 월요일 시작으로 보정
   const daysInMonth = lastOfMonth.getDate();
 
-  const tasksByDate = tasks.reduce((map, task) => {
+  const tasksByDate = tasksForView.reduce((map, task) => {
     if (!map[task.date]) map[task.date] = [];
     map[task.date].push(task);
     return map;
@@ -372,8 +380,7 @@ function renderCalendar(tasks, baseIso) {
   }
 
   for (let day = 1; day <= daysInMonth; day += 1) {
-    const dateObj = new Date(year, month, day);
-    const iso = dateObj.toISOString().split("T")[0];
+    const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const cell = document.createElement("div");
     cell.className = "calendar-cell";
 
@@ -386,13 +393,12 @@ function renderCalendar(tasks, baseIso) {
 
     headerRow.appendChild(dayNum);
 
-    const todaysIso = todayIso;
     const dayTasks = tasksByDate[iso] || [];
 
-    if (iso === todaysIso || dayTasks.length > 0) {
+    if (iso === todayIso || dayTasks.length > 0) {
       const badge = document.createElement("div");
       badge.className = "calendar-day-badge";
-      if (iso === todaysIso) {
+      if (iso === todayIso) {
         badge.classList.add("calendar-day-badge--today");
       }
       badge.textContent = dayTasks.length > 0 ? `${dayTasks.length}건` : "오늘";
@@ -438,10 +444,149 @@ function renderCalendar(tasks, baseIso) {
   calendar.appendChild(weekdays);
   calendar.appendChild(grid);
 
-  if (tasks.length === 0) {
+  if (tasksForView.length === 0) {
     const empty = document.createElement("div");
     empty.className = "calendar-empty-state";
     empty.textContent = "선택한 필터에 해당하는 할 일이 없습니다.";
+    calendar.appendChild(empty);
+  }
+
+  calendarViewEl.appendChild(calendar);
+}
+
+function renderWeekCalendar(tasksForView, baseIso) {
+  const [by, bm, bd] = baseIso.split("-").map(Number);
+  const base = new Date(by, bm - 1, bd);
+  const baseDay = base.getDay(); // 0(일)~6(토)
+  const diffToMonday = (baseDay + 6) % 7; // 월요일 기준
+
+  const weekStart = new Date(base);
+  weekStart.setDate(base.getDate() - diffToMonday);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const tasksByDate = tasksForView.reduce((map, task) => {
+    if (!map[task.date]) map[task.date] = [];
+    map[task.date].push(task);
+    return map;
+  }, {});
+
+  const calendar = document.createElement("div");
+  calendar.className = "calendar";
+
+  const header = document.createElement("div");
+  header.className = "calendar-header";
+
+  const headerLeft = document.createElement("div");
+  headerLeft.className = "calendar-header-left";
+
+  const rangeLabel = document.createElement("span");
+  const sY = weekStart.getFullYear();
+  const sM = weekStart.getMonth() + 1;
+  const sD = weekStart.getDate();
+  const eY = weekEnd.getFullYear();
+  const eM = weekEnd.getMonth() + 1;
+  const eD = weekEnd.getDate();
+  rangeLabel.textContent = `${sY}년 ${sM}월 ${sD}일 ~ ${eY}년 ${eM}월 ${eD}일`;
+
+  headerLeft.appendChild(rangeLabel);
+
+  const filterLabel = document.createElement("span");
+  filterLabel.textContent = "필터: 이번 주";
+
+  header.appendChild(headerLeft);
+  header.appendChild(filterLabel);
+
+  const weekdays = document.createElement("div");
+  weekdays.className = "calendar-weekdays";
+  ["월", "화", "수", "목", "금", "토", "일"].forEach((label) => {
+    const d = document.createElement("div");
+    d.className = "calendar-weekday";
+    d.textContent = label;
+    weekdays.appendChild(d);
+  });
+
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid";
+
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const iso = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell";
+
+    const headerRow = document.createElement("div");
+    headerRow.className = "calendar-cell-header";
+
+    const dayNum = document.createElement("div");
+    dayNum.className = "calendar-day-number";
+    dayNum.textContent = day;
+
+    headerRow.appendChild(dayNum);
+
+    const dayTasks = tasksByDate[iso] || [];
+
+    if (iso === baseIso || dayTasks.length > 0) {
+      const badge = document.createElement("div");
+      badge.className = "calendar-day-badge";
+      if (iso === baseIso) {
+        badge.classList.add("calendar-day-badge--today");
+      }
+      badge.textContent = dayTasks.length > 0 ? `${dayTasks.length}건` : "오늘";
+      headerRow.appendChild(badge);
+    }
+
+    cell.appendChild(headerRow);
+
+    if (dayTasks.length > 0) {
+      cell.classList.add("calendar-cell--has-tasks");
+      cell.addEventListener("click", () => {
+        openDateDetailModal(iso);
+      });
+
+      const list = document.createElement("div");
+      list.className = "calendar-task-list";
+
+      const maxItems = 3;
+      dayTasks.slice(0, maxItems).forEach((task) => {
+        const item = document.createElement("div");
+        item.className = "calendar-task-item";
+        if (task.completed) {
+          item.classList.add("calendar-task-item--done");
+        }
+        item.textContent = task.title;
+        list.appendChild(item);
+      });
+
+      if (dayTasks.length > maxItems) {
+        const more = document.createElement("div");
+        more.className = "calendar-task-item";
+        more.textContent = `+${dayTasks.length - maxItems} 더 보기`;
+        list.appendChild(more);
+      }
+
+      cell.appendChild(list);
+    }
+
+    grid.appendChild(cell);
+  }
+
+  calendar.appendChild(header);
+  calendar.appendChild(weekdays);
+  calendar.appendChild(grid);
+
+  if (tasksForView.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "calendar-empty-state";
+    empty.textContent = "이번 주에는 등록된 할 일이 없습니다.";
     calendar.appendChild(empty);
   }
 
