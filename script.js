@@ -23,7 +23,7 @@ const viewToggleButtons = document.querySelectorAll(".icon-toggle-btn[data-view]
 
 let currentFilter = "all"; // all | today | week
 let currentView = "calendar"; // list | calendar
-let tasks = []; // 메모리에서만 관리
+let tasks = []; // Firebase에서 동기화해 사용하는 메모리 캐시
 
 // 달력에서 현재 보고 있는 연/월
 const todayForCalendar = new Date();
@@ -31,6 +31,58 @@ let calendarYear = todayForCalendar.getFullYear();
 let calendarMonth = todayForCalendar.getMonth(); // 0-index
 let editingTaskId = null;
 let currentDateForModal = null; // ISO string
+let db = null;
+
+// Firebase 초기화
+if (window.firebase && window.firebase.apps && window.firebase.apps.length === 0) {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBbr1uDWpmGM3u9llQ9rIMLojO1yeCUhu8",
+    authDomain: "todo-19b1d.firebaseapp.com",
+    databaseURL: "https://todo-19b1d-default-rtdb.firebaseio.com",
+    projectId: "todo-19b1d",
+    storageBucket: "todo-19b1d.firebasestorage.app",
+    messagingSenderId: "887203659375",
+    appId: "1:887203659375:web:e8afb293001989ed66179a",
+    measurementId: "G-3T388XBDNH",
+  };
+
+  try {
+    window.firebase.initializeApp(firebaseConfig);
+    db = window.firebase.database();
+  } catch (e) {
+    console.error("Firebase 초기화 실패:", e);
+  }
+} else if (window.firebase && window.firebase.apps && window.firebase.apps.length > 0) {
+  db = window.firebase.database();
+}
+
+// Firebase에서 tasks 실시간 동기화
+function watchTasksFromFirebase() {
+  if (!db) {
+    render(); // Firebase가 없으면 비어 있는 상태로 렌더링
+    return;
+  }
+
+  db.ref("tasks").on("value", (snapshot) => {
+    const val = snapshot.val() || {};
+    const next = [];
+
+    Object.keys(val).forEach((key) => {
+      const item = val[key] || {};
+      if (!item.date || !item.title) return;
+      next.push({
+        id: key, // Firebase key
+        title: item.title || "",
+        description: item.description || "",
+        date: item.date,
+        completed: !!item.completed,
+      });
+    });
+
+    tasks = next;
+    render();
+  });
+}
 
 function getTodayISO() {
   const now = new Date();
@@ -459,10 +511,19 @@ function openDateDetailModal(dateIso) {
 }
 
 function toggleTaskCompleted(taskId, completed) {
-  const idx = tasks.findIndex((t) => t.id === taskId);
-  if (idx === -1) return;
-  tasks[idx] = { ...tasks[idx], completed };
-  render();
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) return;
+
+  if (db) {
+    db.ref(`tasks/${task.id}`)
+      .update({ completed })
+      .catch((err) => {
+        console.error("Firebase 완료 상태 업데이트 실패:", err);
+      });
+  } else {
+    task.completed = completed;
+    render();
+  }
 }
 
 function deleteTask(taskId) {
@@ -472,9 +533,20 @@ function deleteTask(taskId) {
   const confirmed = window.confirm(`"${target.title}" 할 일을 삭제하시겠어요?`);
   if (!confirmed) return;
 
-  tasks = tasks.filter((t) => t.id !== taskId);
-  closeModal();
-  render();
+  if (db) {
+    db.ref(`tasks/${target.id}`)
+      .remove()
+      .then(() => {
+        closeModal();
+      })
+      .catch((err) => {
+        console.error("Firebase에서 삭제 실패:", err);
+      });
+  } else {
+    tasks = tasks.filter((t) => t.id !== taskId);
+    closeModal();
+    render();
+  }
 }
 
 openModalBtn.addEventListener("click", () => openCreateModal());
@@ -533,22 +605,48 @@ taskForm.addEventListener("submit", (e) => {
   }
 
   if (editingTaskId == null) {
-    tasks.push({
-      id: Date.now(),
-      title,
-      description,
-      date,
-      completed: false,
-    });
-  } else {
-    const idx = tasks.findIndex((t) => t.id === editingTaskId);
-    if (idx !== -1) {
-      tasks[idx] = {
-        ...tasks[idx],
+    if (db) {
+      db.ref("tasks")
+        .push({
+          title,
+          description,
+          date,
+          completed: false,
+        })
+        .catch((err) => {
+          console.error("Firebase에 저장하는 중 오류가 발생했습니다:", err);
+        });
+    } else {
+      const newTask = {
+        id: String(Date.now()),
         title,
         description,
         date,
+        completed: false,
       };
+      tasks.push(newTask);
+    }
+  } else {
+    if (db) {
+      db.ref(`tasks/${editingTaskId}`)
+        .update({
+          title,
+          description,
+          date,
+        })
+        .catch((err) => {
+          console.error("Firebase에서 수정하는 중 오류가 발생했습니다:", err);
+        });
+    } else {
+      const idx = tasks.findIndex((t) => t.id === editingTaskId);
+      if (idx !== -1) {
+        tasks[idx] = {
+          ...tasks[idx],
+          title,
+          description,
+          date,
+        };
+      }
     }
   }
 
@@ -587,6 +685,6 @@ viewToggleButtons.forEach((btn) => {
   });
 });
 
-// 초기 렌더링
-render();
+// Firebase에서 할 일 감시 시작 후 렌더링
+watchTasksFromFirebase();
 
