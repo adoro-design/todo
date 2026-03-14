@@ -22,7 +22,7 @@ const filterButtons = document.querySelectorAll(".chip-btn");
 const viewToggleButtons = document.querySelectorAll(".icon-toggle-btn[data-view]");
 
 let currentFilter = "all"; // all | today | week
-let currentView = "list"; // list | calendar
+let currentView = "calendar"; // list | calendar
 let tasks = []; // 메모리에서만 관리
 
 // 달력에서 현재 보고 있는 연/월
